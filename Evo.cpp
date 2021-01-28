@@ -5,6 +5,7 @@
 #define defaultNumberOfOutputNodes 3
 #define defaultMutationRate 0.1
 #define defaultMutationAmplitude 0.1
+#define globalMutationFactor 0.01
 
 using namespace std;
 
@@ -71,15 +72,6 @@ public:                       // there is no numberOfWeights int due to it exist
             weights.push_back(0);
         }
     }
-
-    void mutate()
-    {
-        bias += (randDouble() * 2 - 1) * mutationAmplitude;
-        for (int i = 0; i < weights.size(); i++)
-        {
-            weights[i] += (randDouble() * 2 - 1) * mutationAmplitude;
-        }
-    }
 };
 
 class agent
@@ -104,14 +96,15 @@ public:
 
     void initialize(vector<blueprintNode> *givenPointerBlueprintNodes)
     {
+        // cout << givenPointerBlueprintNodes << endl;
         numberOfNodes = defaultNumberOfInputNodes + defaultNumberOfOutputNodes;
         pointerBlueprintNodes = givenPointerBlueprintNodes;
         vector<blueprintNode> &blueprintNodes = *pointerBlueprintNodes;
         for (int i = 0; i < numberOfNodes; i++)
         {
             dataNode newDataNode;
-            newDataNode.initialize(blueprintNodes[i]);
             dataNodes.push_back(newDataNode);
+            dataNodes[i].initialize(blueprintNodes[i]);
         }
     }
 
@@ -119,7 +112,12 @@ public:
     {
         for (int i = 0; i < numberOfNodes; i++)
         {
-            dataNodes[i].mutate();
+            dataNodes[i].bias += (randDouble() * 2 - 1) * dataNodes[i].mutationAmplitude;
+            for (int j = 0; j < dataNodes[i].weights.size(); j++)
+            {
+                dataNodes[i].weights[j] += (randDouble() * 2 - 1) * dataNodes[i].mutationAmplitude;
+            }
+            dataNodes[i].mutationAmplitude += (randDouble() * 2 - 1) * globalMutationFactor;
         }
     }
 };
@@ -143,7 +141,7 @@ public:
         }
         cout << "-|agents: " << endl;
         cout << "__________" << endl;
-        for (int i = 0; i < numberOfNodes; i++)
+        for (int i = 0; i < 1; i++)
         {
             agents[i].info();
             cout << "__________" << endl;
@@ -166,22 +164,34 @@ public:
         for (int i = 0; i < numberOfNodes; i++)
         {
             blueprintNode newblueprintNode;
+            blueprintNodes.push_back(newblueprintNode);
             if (i < defaultNumberOfInputNodes)
             {
-                newblueprintNode.initialize(outputConnections);
+                blueprintNodes[i].initialize(outputConnections);
             }
             else
             {
-                newblueprintNode.initialize(inputConnections);
+                blueprintNodes[i].initialize(inputConnections);
             }
-            blueprintNodes.push_back(newblueprintNode);
         }
         for (int i = 0; i < numberOfNodes; i++)
         {
             agent newAgent;
-            newAgent.initialize(&blueprintNodes);
-            newAgent.mutate();
             agents.push_back(newAgent);
+            agents[i].initialize(&blueprintNodes);
+            agents[i].mutate();
+        }
+    }
+
+    void mutate()
+    {
+        for (int i = 0; i < numberOfNodes; i++)
+        {
+            // for (int i = 0; i < numberOfNodes; i++)
+            // {
+            //     dataNodes[i].weights[i] += (randDouble() * 2 - 1) * dataNodes[i].mutationAmplitude;
+            // }
+            blueprintNodes[i].mutationRate += (randDouble() * 2 - 1) * globalMutationFactor;
         }
     }
 };
@@ -210,11 +220,38 @@ public:
         for (int i = 0; i < numberOfSpecies; i++)
         {
             specie newSpecie;
-            newSpecie.initialize();
             species.push_back(newSpecie);
+            species[i].initialize();
+            species[i].mutate();
         }
     }
 };
+
+world copy()
+{
+    /
+}
+
+bool compare(world one, world two)
+{
+    cout << "numberOdSpecies: " << numberOfSpecies << endl;
+    cout << "species: " << endl;
+    cout << "__________" << endl;
+    for (int i = 0; i < numberOfSpecies; i++)
+    {
+        species[i].info();
+        cout << "__________" << endl;
+    }
+
+    bool isSame = false;
+    isSame = (isSame || one.numberOfSpecies == two.numberOfSpecies);
+    for (int i = 0; i < one.numberOfSpecies; i++)
+    {
+        species[i].info();
+        cout << "__________" << endl;
+    }
+    return isSame;
+}
 
 int main()
 {
