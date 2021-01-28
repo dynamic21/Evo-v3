@@ -227,12 +227,6 @@ public:
     }
 };
 
-world copy(world one)
-{
-    // world two = one;
-    return one;
-}
-
 void edit(world &one)
 {
     one.numberOfSpecies++;
@@ -266,38 +260,46 @@ void edit(world &one)
     }
 }
 
-bool compare(world one, world two)
+void compare(world one, world two)
 {
-    bool isSame = false;
-    if (one.numberOfSpecies == two.numberOfSpecies) cout << "numberOfSpecies" << endl;
+    if (one.numberOfSpecies == two.numberOfSpecies)
+        cout << "numberOfSpecies" << endl;
     for (int i = 0; i < one.species.size(); i++)
     {
-        if (one.species[i].numberOfNodes == two.species[i].numberOfNodes) cout << "numberOfNodes" << endl;
+        if (one.species[i].numberOfNodes == two.species[i].numberOfNodes)
+            cout << "numberOfNodes" << endl;
         for (int j = 0; j < one.species[i].blueprintNodes.size(); j++)
         {
-            if (one.species[i].blueprintNodes[j].numberOfConnections == two.species[i].blueprintNodes[j].numberOfConnections) cout << "numberOfConnections" << endl;
-            if (one.species[i].blueprintNodes[j].mutationRate == two.species[i].blueprintNodes[j].mutationRate) cout << "mutationRate" << endl;
+            if (one.species[i].blueprintNodes[j].numberOfConnections == two.species[i].blueprintNodes[j].numberOfConnections)
+                cout << "numberOfConnections" << endl;
+            if (one.species[i].blueprintNodes[j].mutationRate == two.species[i].blueprintNodes[j].mutationRate)
+                cout << "mutationRate" << endl;
             for (int k = 0; k < one.species[i].blueprintNodes[j].connections.size(); k++)
             {
-                if (one.species[i].blueprintNodes[j].connections[k] == two.species[i].blueprintNodes[j].connections[k]) cout << "connections" << endl;
+                if (one.species[i].blueprintNodes[j].connections[k] == two.species[i].blueprintNodes[j].connections[k])
+                    cout << "connections" << endl;
             }
         }
         for (int j = 0; j < one.species[i].agents.size(); j++)
         {
-            if (one.species[i].agents[j].numberOfNodes == two.species[i].agents[j].numberOfNodes) cout << "numberOfNodes" << endl;
-            if (one.species[i].agents[j].pointerBlueprintNodes == two.species[i].agents[j].pointerBlueprintNodes) cout << "pointerBlueprintNodes" << endl;
+            if (one.species[i].agents[j].numberOfNodes == two.species[i].agents[j].numberOfNodes)
+                cout << "numberOfNodes" << endl;
+            if (one.species[i].agents[j].pointerBlueprintNodes == two.species[i].agents[j].pointerBlueprintNodes)
+                cout << "pointerBlueprintNodes" << endl;
             for (int k = 0; k < one.species[i].agents[j].dataNodes.size(); k++)
             {
-                if (one.species[i].agents[j].dataNodes[k].mutationAmplitude == two.species[i].agents[j].dataNodes[k].mutationAmplitude) cout << "mutationAmplitude" << endl;
-                if (one.species[i].agents[j].dataNodes[k].bias == two.species[i].agents[j].dataNodes[k].bias) cout << "bias" << endl;
+                if (one.species[i].agents[j].dataNodes[k].mutationAmplitude == two.species[i].agents[j].dataNodes[k].mutationAmplitude)
+                    cout << "mutationAmplitude" << endl;
+                if (one.species[i].agents[j].dataNodes[k].bias == two.species[i].agents[j].dataNodes[k].bias)
+                    cout << "bias" << endl;
                 for (int l = 0; l < one.species[i].agents[j].dataNodes[k].weights.size(); l++)
                 {
-                    if (one.species[i].agents[j].dataNodes[k].weights[l] == two.species[i].agents[j].dataNodes[k].weights[l]) cout << "weights" << endl;
+                    if (one.species[i].agents[j].dataNodes[k].weights[l] == two.species[i].agents[j].dataNodes[k].weights[l])
+                        cout << "weights" << endl;
                 }
             }
         }
     }
-    return isSame;
 }
 
 int main()
@@ -308,11 +310,12 @@ int main()
     world newWorld;
     newWorld.initialize();
     cout << newWorld.species[0].agents[0].dataNodes[0].weights[0] << endl;
-    world world2 = newWorld;
+    world world2;
+    world2 = newWorld;
     edit(world2);
     cout << world2.species[0].agents[0].dataNodes[0].weights[0] << endl;
     cout << newWorld.species[0].agents[0].dataNodes[0].weights[0] << endl;
-    cout << compare(newWorld, world2) << endl;
+    compare(newWorld, world2);
     // newWorld.info();
 
     int done;
