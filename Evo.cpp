@@ -17,8 +17,8 @@ class blueprintNode
 {
 public:
     int numberOfConnections;
-    double mutationRate;
-    vector<int> connections;
+    double mutationRate;     // the chance that this structureNode will mutate
+    vector<int> connections; // list of connections to other structureNodes
     void initialize(vector<int> givenConnection)
     {
         numberOfConnections = givenConnection.size();
@@ -33,13 +33,26 @@ public:
 class dataNode
 {
 public:
-    vector<double> weights;
+    double mutationAmplitude; // how much a mutation can change the existing value
+    double bias;              // the bias added if node is active
+    vector<double> weights;   // list of connection weights
 
     void initialize(blueprintNode givenblueprintNode)
     {
+        mutationAmplitude = defaultMutationAmplitude;
+        bias = 0;
         for (int i = 0; i < givenblueprintNode.numberOfConnections; i++)
         {
             weights.push_back(0);
+        }
+    }
+
+    void mutate(int givenNumberOfConnections)
+    {
+        bias += (randDouble() * 2 - 1) * mutationAmplitude;
+        for (int i = 0; i < givenNumberOfConnections; i++)
+        {
+            weights[i] += (randDouble() * 2 - 1) * mutationAmplitude;
         }
     }
 };
@@ -48,18 +61,27 @@ class agent
 {
 public:
     int numberOfNodes;
-    vector<dataNode> dataNodes;
-    vector<blueprintNode> *blueprintNodes;
+    vector<dataNode> dataNodes;                   // holds all weights and biases
+    vector<blueprintNode> *pointerBlueprintNodes; // hold reference of structure to save space
 
-    void initialize(vector<blueprintNode> *givenblueprintNodes)
+    void initialize(vector<blueprintNode> *givenPointerBlueprintNodes)
     {
-        vector<blueprintNode> &convertedblueprintNodes = *givenblueprintNodes;
         numberOfNodes = numberOfInputNodes + numberOfOutputNodes;
-        blueprintNodes = givenblueprintNodes;
+        pointerBlueprintNodes = givenPointerBlueprintNodes;
+        vector<blueprintNode> &blueprintNodes = *pointerBlueprintNodes;
         for (int i = 0; i < numberOfNodes; i++)
         {
             dataNode newDataNode;
-            newDataNode.initialize(convertedblueprintNodes[i]);
+            newDataNode.initialize(blueprintNodes[i]);
+        }
+    }
+
+    void mutate()
+    {
+        for (int i = 0; i < numberOfNodes; i++)
+        {
+            vector<blueprintNode> &blueprintNodes = *pointerBlueprintNodes;
+            dataNodes[i].mutate(blueprintNodes[i].numberOfConnections);
         }
     }
 };
@@ -67,9 +89,9 @@ public:
 class specie
 {
 public:
-    int numberOfNodes;
-    vector<blueprintNode> blueprintNodes;
-    vector<agent> agents;
+    int numberOfNodes;                    // used for the number of blueprintNodes as well as agents a specie will have
+    vector<blueprintNode> blueprintNodes; // the structure of the architecture
+    vector<agent> agents;                 // agents in the specie
 
     void initialize()
     {
@@ -101,6 +123,7 @@ public:
         {
             agent newAgent;
             newAgent.initialize(&blueprintNodes);
+            newAgent.mutate();
             agents.push_back(newAgent);
         }
     }
@@ -109,10 +132,21 @@ public:
 class world
 {
 public:
+    int numberOfSpecies;
     vector<specie> species;
+
+    void info()
+    {
+        for (int i = 0; i < numberOfSpecies; i++)
+        {
+            //
+        }
+    }
+
     void initialize()
     {
-        for (int i = 0; i < numberOfInputNodes + numberOfOutputNodes; i++)
+        numberOfSpecies = numberOfInputNodes + numberOfOutputNodes;
+        for (int i = 0; i < numberOfSpecies; i++)
         {
             specie newSpecie;
             newSpecie.initialize();
