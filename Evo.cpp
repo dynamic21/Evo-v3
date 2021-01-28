@@ -13,7 +13,7 @@ double randDouble()
     return (double)rand() / RAND_MAX;
 }
 
-class structureNode
+class blueprintNode
 {
 public:
     int numberOfConnections;
@@ -35,9 +35,9 @@ class dataNode
 public:
     vector<double> weights;
 
-    void initialize(structureNode givenStructureNode)
+    void initialize(blueprintNode givenblueprintNode)
     {
-        for (int i = 0; i < givenStructureNode.numberOfConnections; i++)
+        for (int i = 0; i < givenblueprintNode.numberOfConnections; i++)
         {
             weights.push_back(0);
         }
@@ -49,19 +49,17 @@ class agent
 public:
     int numberOfNodes;
     vector<dataNode> dataNodes;
-    vector<structureNode> *structureNodes;
+    vector<blueprintNode> *blueprintNodes;
 
-    void initialize(vector<structureNode> &givenStructureNodes)
+    void initialize(vector<blueprintNode> *givenblueprintNodes)
     {
-        vector<structureNode> &convertedStructureNodes = givenStructureNodes;
+        vector<blueprintNode> &convertedblueprintNodes = *givenblueprintNodes;
         numberOfNodes = numberOfInputNodes + numberOfOutputNodes;
-        cout << givenStructureNodes << endl;
-        structureNodes = givenStructureNodes;
-        cout << structureNodes << endl;
+        blueprintNodes = givenblueprintNodes;
         for (int i = 0; i < numberOfNodes; i++)
         {
             dataNode newDataNode;
-            newDataNode.initialize(convertedStructureNodes[i]);
+            newDataNode.initialize(convertedblueprintNodes[i]);
         }
     }
 };
@@ -70,7 +68,7 @@ class specie
 {
 public:
     int numberOfNodes;
-    vector<structureNode> structureNodes;
+    vector<blueprintNode> blueprintNodes;
     vector<agent> agents;
 
     void initialize()
@@ -88,21 +86,21 @@ public:
         }
         for (int i = 0; i < numberOfNodes; i++)
         {
-            structureNode newStructureNode;
+            blueprintNode newblueprintNode;
             if (i < numberOfInputNodes)
             {
-                newStructureNode.initialize(outputConnections);
+                newblueprintNode.initialize(outputConnections);
             }
             else
             {
-                newStructureNode.initialize(inputConnections);
+                newblueprintNode.initialize(inputConnections);
             }
-            structureNodes.push_back(newStructureNode);
+            blueprintNodes.push_back(newblueprintNode);
         }
         for (int i = 0; i < numberOfNodes; i++)
         {
             agent newAgent;
-            newAgent.initialize(&structureNodes);
+            newAgent.initialize(&blueprintNodes);
             agents.push_back(newAgent);
         }
     }
