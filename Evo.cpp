@@ -18,8 +18,18 @@ class blueprintNode
 {
 public:
     int numberOfConnections;
-    double mutationRate;     // the chance that this structureNode will mutate
-    vector<int> connections; // list of connections to other structureNodes
+    double mutationRate;          // the chance that this structureNode will mutate
+    vector<int> connectionVector; // list of connections to other structureNodes
+
+    blueprintNode(vector<int> givenConnection)
+    {
+        numberOfConnections = givenConnection.size();
+        for (int i = 0; i < numberOfConnections; i++)
+        {
+            mutationRate = defaultMutationRate;
+            connectionVector.push_back(givenConnection[i]);
+        }
+    }
 
     void info()
     {
@@ -28,37 +38,35 @@ public:
         cout << "---|connections: ";
         for (int i = 0; i < numberOfConnections; i++)
         {
-            cout << connections[i] << " ";
+            cout << connectionVector[i] << " ";
         }
         cout << endl;
-    }
-
-    void initialize(vector<int> givenConnection)
-    {
-        numberOfConnections = givenConnection.size();
-        for (int i = 0; i < numberOfConnections; i++)
-        {
-            mutationRate = defaultMutationRate;
-            connections.push_back(givenConnection[i]);
-        }
     }
 };
 
 class dataNode
 {
-public:                       // there is no numberOfWeights int due to it existing in the blueprintNodes given in evaluation
-    double mutationAmplitude; // how much a mutation can change the existing value
-    double defaultMemory;     // the initial value held in the node when an agent is reset or started
-    double memory;            // stores the current value of a node
-    bool currentlyActive;     // store if a node is active
-    double bias;              // the bias added if node is active
-    vector<double> weights;   // list of connection weights
+public:
+    double mutationAmplitude = defaultMutationAmplitude; // how much a mutation can change the existing value
+    double defaultMemory = 0;                            // the initial value held in the node when an agent is reset or started
+    double memory = 0;                                   // stores the current value of a node
+    bool currentlyActive = true;                         // store if a node is active
+    double bias = 0;                                     // the bias added if node is active
+    vector<double> weights;                         // list of connection weights
+
+    dataNode(blueprintNode *givenblueprintNode)
+    {
+        for (int i = 0; i < givenblueprintNode->numberOfConnections; i++)
+        {
+            weights.push_back(0); // initializes the weights to zero
+        }
+    }
 
     void info()
     {
         cout << "-----|mutationAmplitude: " << mutationAmplitude << endl;
         cout << "-----|defaultMemory: " << defaultMemory << endl;
-        cout << "-----|memory: " << bias << memory;
+        cout << "-----|memory: " << memory << endl;
         cout << "-----|currentlyActive: " << currentlyActive << endl;
         cout << "-----|bias: " << bias << endl;
         cout << "-----|weights: ";
@@ -68,26 +76,22 @@ public:                       // there is no numberOfWeights int due to it exist
         }
         cout << endl;
     }
-
-    void initialize(blueprintNode givenblueprintNode)
-    {
-        mutationAmplitude = defaultMutationAmplitude;
-        defaultMemory = 0;
-        memory = 0;
-        currentlyActive = true;
-        bias = 0;
-        for (int i = 0; i < givenblueprintNode.numberOfConnections; i++)
-        {
-            weights.push_back(0);
-        }
-    }
 };
 
 class agent
 {
 public:
     int numberOfNodes;
-    vector<dataNode> dataNodes; // holds all weights and biases
+    vector<dataNode *> dataNodes; // holds all weights and biases
+
+    agent(vector<blueprintNode *> givenBlueprintNodes)
+    {
+        numberOfNodes = givenBlueprintNodes.size();
+        for (int i = 0; i < numberOfNodes; i++)
+        {
+            dataNodes.push_back(new dataNode(givenBlueprintNodes[i]));
+        }
+    }
 
     void info()
     {
@@ -96,104 +100,128 @@ public:
         cout << "__________" << endl;
         for (int i = 0; i < numberOfNodes; i++)
         {
-            dataNodes[i].info();
+            dataNodes[i]->info();
             cout << "__________" << endl;
         }
     }
 
-    void initialize(vector<blueprintNode> givenBlueprintNodes)
-    {
-        numberOfNodes = defaultNumberOfInputNodes + defaultNumberOfOutputNodes;
-        for (int i = 0; i < numberOfNodes; i++)
-        {
-            dataNode newDataNode;
-            dataNodes.push_back(newDataNode);
-            dataNodes[i].initialize(givenBlueprintNodes[i]);
-        }
-    }
+    // void mutate()
+    // {
+    //     for (int i = 0; i < numberOfNodes; i++)
+    //     {
+    //         dataNodes[i].defaultMemory += (randDouble() * 2 - 1) * dataNodes[i].mutationAmplitude;
+    //         dataNodes[i].bias += (randDouble() * 2 - 1) * dataNodes[i].mutationAmplitude;
+    //         for (int j = 0; j < dataNodes[i].weights.size(); j++)
+    //         {
+    //             dataNodes[i].weights[j] += (randDouble() * 2 - 1) * dataNodes[i].mutationAmplitude;
+    //         }
+    //         dataNodes[i].mutationAmplitude += (randDouble() * 2 - 1) * globalMutationFactor;
+    //     }
+    // }
 
-    void mutate()
-    {
-        for (int i = 0; i < numberOfNodes; i++)
-        {
-            dataNodes[i].defaultMemory += (randDouble() * 2 - 1) * dataNodes[i].mutationAmplitude;
-            dataNodes[i].bias += (randDouble() * 2 - 1) * dataNodes[i].mutationAmplitude;
-            for (int j = 0; j < dataNodes[i].weights.size(); j++)
-            {
-                dataNodes[i].weights[j] += (randDouble() * 2 - 1) * dataNodes[i].mutationAmplitude;
-            }
-            dataNodes[i].mutationAmplitude += (randDouble() * 2 - 1) * globalMutationFactor;
-        }
-    }
+    // void factoryReset()
+    // {
+    //     for (int i = 0; i < numberOfNodes; i++)
+    //     {
+    //         dataNodes[i].memory = dataNodes[i].defaultMemory; // reset the memory
+    //         dataNodes[i].currentlyActive = true;              // reset active state
+    //     }
+    // }
 
-    void factoryReset()
-    {
-        for (int i = 0; i < numberOfNodes; i++)
-        {
-            dataNodes[i].memory = dataNodes[i].defaultMemory; // reset the memory
-            dataNodes[i].currentlyActive = true;              // reset active state
-        }
-    }
-
-    vector<double> evaluate(vector<blueprintNode> givenBlueprintNodes, vector<double> givenInputs)
-    {
-        vector<double> futureMemory;   // dataNode[i].futureMemory
-        vector<bool> perviouslyActive; // dataNode[i].previouslyActive
-        for (int i = 0; i < defaultNumberOfInputNodes + defaultNumberOfOutputNodes; i++)
-        {
-            dataNodes[i].memory += givenInputs[i]; // importing the inputs
-        }
-        for (int i = 0; i < givenBlueprintNodes.size(); i++)
-        {
-            futureMemory.push_back(0);                                // placeholder
-            perviouslyActive.push_back(dataNodes[i].currentlyActive); // present becomes past
-            dataNodes[i].currentlyActive = false;                     // placeholder
-        }
-        for (int i = 0; i < numberOfNodes; i++)
-        {
-            if (perviouslyActive[i])
-            {
-                for (int j = 0; j < givenBlueprintNodes[i].numberOfConnections; j++)
-                {
-                    double sum = dataNodes[i].memory * dataNodes[i].weights[j];
-                    if (sum >= 0)
-                    {
-                        int connectionNumber = givenBlueprintNodes[i].connections[j];
-                        futureMemory[connectionNumber] += sum;
-                        dataNodes[connectionNumber].currentlyActive = true;
-                    }
-                }
-            }
-        }
-        for (int i = 0; i < numberOfNodes; i++)
-        {
-            if (dataNodes[i].currentlyActive)
-            {
-                dataNodes[i].memory = futureMemory[i] + dataNodes[i].bias;
-            }
-        }
-        vector<double> output;
-        for (int i = defaultNumberOfInputNodes; i < defaultNumberOfInputNodes + defaultNumberOfOutputNodes; i++)
-        {
-            if (dataNodes[i].currentlyActive)
-            {
-                output.push_back(dataNodes[i].memory);
-            }
-            else
-            {
-                output.push_back(0);
-            }
-        }
-        return output;
-    }
+    // vector<double> evaluate(vector<blueprintNode> givenBlueprintNodes, vector<double> givenInputs)
+    // {
+    //     vector<double> futureMemory;   // dataNode[i].futureMemory
+    //     vector<bool> perviouslyActive; // dataNode[i].previouslyActive
+    //     for (int i = 0; i < defaultNumberOfInputNodes /* + defaultNumberOfOutputNodes*/; i++)
+    //     {
+    //         dataNodes[i].memory += givenInputs[i]; // importing the inputs
+    //     }
+    //     for (int i = 0; i < givenBlueprintNodes.size(); i++)
+    //     {
+    //         futureMemory.push_back(0);                                // placeholder
+    //         perviouslyActive.push_back(dataNodes[i].currentlyActive); // present becomes past
+    //         dataNodes[i].currentlyActive = false;                     // placeholder
+    //     }
+    //     for (int i = 0; i < numberOfNodes; i++)
+    //     {
+    //         if (perviouslyActive[i])
+    //         {
+    //             for (int j = 0; j < givenBlueprintNodes[i].numberOfConnections; j++)
+    //             {
+    //                 double sum = dataNodes[i].memory * dataNodes[i].weights[j];
+    //                 if (sum >= 0)
+    //                 {
+    //                     int connectionNumber = givenBlueprintNodes[i].connections[j];
+    //                     futureMemory[connectionNumber] += sum;
+    //                     dataNodes[connectionNumber].currentlyActive = true;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     for (int i = 0; i < numberOfNodes; i++)
+    //     {
+    //         if (dataNodes[i].currentlyActive)
+    //         {
+    //             dataNodes[i].memory = futureMemory[i] + dataNodes[i].bias;
+    //         }
+    //         else
+    //         {
+    //             dataNodes[i].memory = futureMemory[i];
+    //         }
+    //     }
+    //     vector<double> output;
+    //     for (int i = defaultNumberOfInputNodes; i < defaultNumberOfInputNodes + defaultNumberOfOutputNodes; i++)
+    //     {
+    //         if (dataNodes[i].currentlyActive)
+    //         {
+    //             output.push_back(dataNodes[i].memory);
+    //         }
+    //         else
+    //         {
+    //             output.push_back(0);
+    //         }
+    //     }
+    //     return output;
+    // }
 };
 
 class specie
 {
 public:
-    int numberOfNodes;                    // used for the number of blueprintNodes as well as agents a specie will have
-    vector<blueprintNode> blueprintNodes; // the structure of the architecture
-    vector<agent> agents;                 // agents in the specie
+    int numberOfNodes; // number of blueprintNodes is the same as number of agents
+    vector<blueprintNode *> blueprintNodes;
+    vector<agent *> agents;
+
+    specie(int givenNumberOfAgents)
+    {
+        numberOfNodes = givenNumberOfAgents;
+        vector<int> inputConnections;
+        vector<int> outputConnections;
+        for (int i = 0; i < defaultNumberOfInputNodes; i++)
+        {
+            inputConnections.push_back(i); // list of input node indexes
+        }
+        for (int i = defaultNumberOfInputNodes; i < numberOfNodes; i++)
+        {
+            outputConnections.push_back(i); // list of output node indexes
+        }
+        for (int i = 0; i < numberOfNodes; i++)
+        {
+            if (i < defaultNumberOfInputNodes) // add the output indexes to current blueprint node connections if in input node position and the otherway around
+            {
+                blueprintNodes.push_back(new blueprintNode(outputConnections));
+            }
+            else
+            {
+                blueprintNodes.push_back(new blueprintNode(inputConnections));
+            }
+        }
+        for (int i = 0; i < numberOfNodes; i++)
+        {
+            agents.push_back(new agent(blueprintNodes)); // add an agent pointer given the blueprint to the species list
+            // agents[i]->mutate();
+        }
+    }
 
     void info()
     {
@@ -202,67 +230,42 @@ public:
         cout << "__________" << endl;
         for (int i = 0; i < numberOfNodes; i++)
         {
-            blueprintNodes[i].info();
+            blueprintNodes[i]->info();
             cout << "__________" << endl;
         }
         cout << "-|agents: " << endl;
         cout << "__________" << endl;
         for (int i = 0; i < 1; i++)
         {
-            agents[i].info();
+            agents[i]->info();
             cout << "__________" << endl;
         }
     }
 
-    void initialize()
-    {
-        numberOfNodes = defaultNumberOfInputNodes + defaultNumberOfOutputNodes;
-        vector<int> inputConnections;
-        vector<int> outputConnections;
-        for (int i = 0; i < defaultNumberOfInputNodes; i++)
-        {
-            inputConnections.push_back(i);
-        }
-        for (int i = defaultNumberOfInputNodes; i < numberOfNodes; i++)
-        {
-            outputConnections.push_back(i);
-        }
-        for (int i = 0; i < numberOfNodes; i++)
-        {
-            blueprintNode newblueprintNode;
-            blueprintNodes.push_back(newblueprintNode);
-            if (i < defaultNumberOfInputNodes)
-            {
-                blueprintNodes[i].initialize(outputConnections);
-            }
-            else
-            {
-                blueprintNodes[i].initialize(inputConnections);
-            }
-        }
-        for (int i = 0; i < numberOfNodes; i++)
-        {
-            agent newAgent;
-            agents.push_back(newAgent);
-            agents[i].initialize(blueprintNodes);
-            agents[i].mutate();
-        }
-    }
-
-    void mutate()
-    {
-        for (int i = 0; i < numberOfNodes; i++)
-        {
-            blueprintNodes[i].mutationRate += (randDouble() * 2 - 1) * globalMutationFactor;
-        }
-    }
+    // void mutate()
+    // {
+    //     for (int i = 0; i < numberOfNodes; i++)
+    //     {
+    //         blueprintNodes[i]->mutationRate += (randDouble() * 2 - 1) * globalMutationFactor;
+    //     }
+    // }
 };
 
 class world
 {
 public:
     int numberOfSpecies;
-    vector<specie> species;
+    vector<specie *> species;
+
+    world(int givenNumberOfSpecies)
+    {
+        numberOfSpecies = givenNumberOfSpecies;
+        for (int i = 0; i < numberOfSpecies; i++)
+        {
+            species.push_back(new specie(numberOfSpecies)); // add a specie pointer with input plus output node number of agents to the species list
+            // species[i]->mutate();
+        }
+    }
 
     void info()
     {
@@ -271,47 +274,33 @@ public:
         cout << "__________" << endl;
         for (int i = 0; i < numberOfSpecies; i++)
         {
-            species[i].info();
+            species[i]->info();
             cout << "__________" << endl;
         }
     }
-
-    void initialize()
-    {
-        numberOfSpecies = defaultNumberOfInputNodes + defaultNumberOfOutputNodes;
-        for (int i = 0; i < numberOfSpecies; i++)
-        {
-            specie newSpecie;
-            species.push_back(newSpecie);
-            species[i].initialize();
-            species[i].mutate();
-        }
-    }
 };
 
-class game
-{
-public:
-    int boarderSize = 10;
-    vector<agent> agents;
-    vector<vector<blueprintNode>> structures;
-    
-    void addAgent(agent givenAgent, vector<blueprintNode> givenStructureNodes){
-        agents.push_back(givenAgent);
-        structures.push_back(givenStructureNodes);
-    }
-};
+// class game
+// {
+// public:
+//     int boarderSize = 10;
+//     vector<agent> agents;
+//     vector<vector<blueprintNode>> structures;
+
+//     void addAgent(agent givenAgent, vector<blueprintNode> givenStructureNodes)
+//     {
+//         agents.push_back(givenAgent);
+//         structures.push_back(givenStructureNodes);
+//     }
+// };
+
+vector<world *> worlds;
 
 int main()
 {
     srand(time(NULL));
     randDouble();
 
-    world newWorld;
-    newWorld.initialize();
-    // newWorld.info();
-
-    int done;
-    cout << "Enter Any Key To Exit: " << endl;
-    cin >> done;
+    worlds.push_back(new world(defaultNumberOfInputNodes + defaultNumberOfOutputNodes)); // add a world pointer with input plus output node number of species to the world list
+    worlds[0]->info();
 }
