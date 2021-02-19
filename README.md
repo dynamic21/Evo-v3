@@ -2,4 +2,5 @@
 Evolve artificial general inteligence through a unique agent model and training methods.
 
 ## Current Goals
-Implement a prototype version of part of the model to perfect tic tac toe.
+- Implement a prototype version using nodes and connections
+- Getting a 2D environment to evolve the agents on
