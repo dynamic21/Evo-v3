@@ -6,17 +6,23 @@
 #define defaultNumberOfOutputNodes 1
 #define defaultMutationRate 0.1
 #define defaultMutationAmplitude 0.1
-#define globalMutationFactor 0.01
+#define mutationFactor 0.01
 #define populationExposurePercent 0.2
-#define populationKeptPercent 0.2
-// #define startingNumberOfWorlds 1 // manually set to 1 for now
+#define agentsKeptPercent 0.2
+#define speciesKeptPercent 0.2
+#define startingNumberOfWorlds 1
 #define startingNumberOfSpecies 3
 #define startingNumberOfAgents 10
+#define logLength 10
+#define timeSinceClimaxThreshold 100
 
 using namespace std;
 
 // REMINDERS:
 // - don't forget to reset/initialize the agent memory after mutation/ before starting a round
+
+// TODO:
+// - species mutation
 
 double randDouble()
 {
@@ -64,7 +70,7 @@ public:
 
     void mutate()
     {
-        mutationRate += (randDouble() * 2 - 1) * globalMutationFactor;
+        mutationRate += (randDouble() * 2 - 1) * mutationFactor;
     }
 };
 
@@ -130,7 +136,7 @@ public:
         {
             weights[i] += (randDouble() * 2 - 1) * mutationAmplitude;
         }
-        mutationAmplitude += (randDouble() * 2 - 1) * globalMutationFactor;
+        mutationAmplitude += (randDouble() * 2 - 1) * mutationFactor;
     }
 };
 
@@ -195,7 +201,7 @@ public:
         }
     }
 
-    vector<double> evaluate(vector<double> givenInputs)
+    vector<double> evaluateData(vector<double> givenInputs)
     {
         vector<double> futureMemory;   // dataNode[i].futureMemory
         vector<bool> perviouslyActive; // dataNode[i].previouslyActive
@@ -258,12 +264,18 @@ class specie
 public:
     int numberOfAgents;
     int numberOfBlueprintNodes;
+    int timeSinceClimax;                    // time since the max score was updated
+    int logIndex;                           // position to replace scoreLog with current score
+    double currentScore;                    // holds the current score of the specie, average of the 100 items in scoreLog
+    double maxScore;                        // holds the max score of the specie
+    double scoreLog[logLength];             // holds 100 of the species best average scores
     vector<blueprintNode *> blueprintNodes; // hold all connections pointing to other connection indexes
     vector<agent *> agents;                 // holds the agents
 
     specie(int givenNumberOfAgents) // default initializer
     {
         numberOfBlueprintNodes = defaultNumberOfInputNodes + defaultNumberOfOutputNodes; // default structure size
+        dataReset();
         vector<int> inputConnections;
         vector<int> outputConnections;
         for (int i = 0; i < defaultNumberOfInputNodes; i++)
@@ -297,6 +309,14 @@ public:
     {
         numberOfAgents = givenSpecie->numberOfAgents;
         numberOfBlueprintNodes = givenSpecie->numberOfBlueprintNodes;
+        timeSinceClimax = givenSpecie->timeSinceClimax;
+        logIndex = givenSpecie->logIndex;
+        currentScore = givenSpecie->currentScore;
+        maxScore = givenSpecie->maxScore;
+        for (int i = 0; i < logLength; i++)
+        {
+            scoreLog[i] = givenSpecie->scoreLog[i];
+        }
         for (int i = 0; i < numberOfBlueprintNodes; i++)
         {
             blueprintNodes.push_back(new blueprintNode(givenSpecie->blueprintNodes[i])); // copies each blueprintNode to blueprintNodes list
@@ -310,6 +330,17 @@ public:
     void info()
     {
         cout << "-|numberOfAgents: " << numberOfAgents << endl;
+        cout << "-|numberOfBlueprintNodes: " << numberOfBlueprintNodes << endl;
+        cout << "-|timeSinceClimax: " << timeSinceClimax << endl;
+        cout << "-|logIndex: " << logIndex << endl;
+        cout << "-|currentScore: " << currentScore << endl;
+        cout << "-|maxScore: " << maxScore << endl;
+        cout << "-|scoreLog: ";
+        for (int i = 0; i < logLength; i++)
+        {
+            cout << scoreLog[i] << " ";
+        }
+        cout << endl;
         cout << "-|blueprintNodes: " << endl;
         cout << "__________" << endl;
         for (int i = 0; i < numberOfBlueprintNodes; i++)
@@ -326,21 +357,54 @@ public:
         }
     }
 
-    void evaluate()
+    void dataReset() // resets/initializes the specie's score, etc
     {
-        sort(agents.begin(), agents.end(), [](agent *agent1, agent *agent2) { return (agent1->score > agent2->score); });
-        for (int i = 0; i < numberOfAgents; i++)
+        timeSinceClimax = 0;
+        logIndex = 0;
+        currentScore = 0;
+        maxScore = 0;
+        for (int i = 0; i < logLength; i++)
         {
-            cout << agents[i]->score << endl;
+            scoreLog[i] = 0;
         }
-        cout << endl;
-        int topPercent = max(1, int(numberOfAgents * populationKeptPercent));
+    }
+
+    void evaluateAgents()
+    {
+        sort(agents.begin(), agents.end(), [](agent *agent1, agent *agent2) {
+            return (agent1->score > agent2->score);
+        }); // sort from greatest to least
+        // for (int i = 0; i < numberOfAgents; i++)
+        // {
+        //     cout << agents[i]->score << endl;
+        // }
+        // cout << endl;
+        int topPercent = max(1, int(numberOfAgents * agentsKeptPercent)); // get index from where to start replacing agents
         for (int i = topPercent; i < numberOfAgents; i++)
         {
-            delete agents[i];
-            agents[i] = new agent(agents[i % topPercent]);
-            agents[i]->mutate();
+            delete agents[i];                              // delete agent from heap and existence
+            agents[i] = new agent(agents[i % topPercent]); // copy over one of the top agents
+            agents[i]->mutate();                           // mutate the copied agent
         }
+        int sum = 0; // get the average of the top scores
+        for (int i = 0; i < topPercent; i++)
+        {
+            sum += agents[i]->score;
+        }
+        sum /= topPercent;
+        currentScore += sum - scoreLog[logIndex]; // update current score to be the average of the score log
+        scoreLog[logIndex] = sum;                 // add current score to scoreLog at the log index
+        if (currentScore > maxScore)              // set max score and reset timeSinceClimax
+        {
+            maxScore = currentScore;
+            timeSinceClimax = 0;
+        }
+        logIndex++; // increase logIndex to next index
+        if (logIndex == logLength)
+        {
+            logIndex = 0;
+        }
+        timeSinceClimax++; // count timeSinceClimax
     }
 
     void mutate()
@@ -352,24 +416,38 @@ public:
     }
 };
 
-class environment
+class environment // this environment tests reaction time
 {
 public:
-    bool running;
-    bool hit;
-    int timeLeft;
-    int scoreAvailable;
-    int numberOfAgents;
-    vector<bool> isDead;
-    vector<agent *> agents;
+    bool running;           // is environment running
+    bool hit;               // when the agent should hit
+    int timeLeft;           // timer till game ends/ max game length
+    int scoreAvailable;     // the score the agents will get if they hit
+    int numberOfAgents;     // used for isDead and agents because they are the same size
+    vector<bool> isDead;    // is the agent dead
+    vector<agent *> agents; // holds all agent pointers in the game
 
-    environment()
+    environment() // default initializer
     {
         running = true;
         hit = false;
         timeLeft = 100;
         scoreAvailable = -1;
         numberOfAgents = 0;
+    }
+
+    environment(environment *givenEnvironment) // copies an environment
+    {
+        running = givenEnvironment->running;
+        hit = givenEnvironment->hit;
+        timeLeft = givenEnvironment->timeLeft;
+        scoreAvailable = givenEnvironment->scoreAvailable;
+        numberOfAgents = givenEnvironment->numberOfAgents;
+        for (int i = 0; i < numberOfAgents; i++)
+        {
+            isDead[i] = givenEnvironment->isDead[i];                  // copies the isDead list
+            agents.push_back(new agent(givenEnvironment->agents[i])); // copies each agent to agents list
+        }
     }
 
     void info()
@@ -405,12 +483,15 @@ public:
     {
         while (running)
         {
-            if (hit)
+            if (hit) // if already hit, decrease the score available by a factor of 2
                 scoreAvailable /= 2;
             if (!hit && (rand() % (timeLeft - 10)) == 0)
+            /* if not yet hit, then give possibility of hitting,
+            the - 10 is so that if it doesn't hit until last minute,
+            the score available can decrease to a small amount if the agents don't hit till last minute*/
             {
                 hit = true;
-                scoreAvailable = 10;
+                scoreAvailable = 10; // sets the score available to 10 so that the agents will gain score if they hit now
             }
             for (int i = 0; i < numberOfAgents; i++)
             {
@@ -418,21 +499,21 @@ public:
                 {
                     if (hit)
                     {
-                        if (agents[i]->evaluate({1.0})[0] > 0)
+                        if (agents[i]->evaluateData({1.0})[0] > 0) // if just/already hit and agent hits, give them the score available
                         {
                             agents[i]->score += scoreAvailable;
-                            running = false;
+                            running = false; // end the game after loop so agents get points if its a tie
                         }
                     }
                     else
                     {
-                        isDead[i] = agents[i]->evaluate({0.0})[0] > 0;
+                        isDead[i] = agents[i]->evaluateData({0.0})[0] > 0; // if agent hits before hit, the score would be -1 and they die
                         if (isDead[i])
                             agents[i]->score += scoreAvailable;
                     }
                 }
             }
-            bool allDead = true;
+            bool allDead = true; // check if everyone is dead to end game
             for (int i = 0; i < numberOfAgents; i++)
             {
                 if (!isDead[i])
@@ -441,7 +522,7 @@ public:
                     break;
                 }
             }
-            if (allDead || timeLeft == 0)
+            if (allDead || timeLeft == 0) // if timeLeft is 0, end game as well
             {
                 running = false;
             }
@@ -486,7 +567,7 @@ public:
         }
     }
 
-    void evaluate()
+    void evaluateAllAgents()
     {
         int numberOfAgents = 0;
         vector<agent *> agents;
@@ -512,22 +593,34 @@ public:
             int k = i;
             for (int j = 0; j < max(2, int(numberOfAgents * populationExposurePercent)); j++) // decide number of agents in a game
             {
-                newEnvironment.addAgent(agents[k]);
+                newEnvironment.addAgent(agents[k]); // add agent to the environment
                 k++;
                 if (k == numberOfAgents)
                     k = 0;
             }
-            newEnvironment.start();
+            newEnvironment.start(); // run the environment until it finishes and update agent scores
             // newEnvironment.info();
             // cout << endl;
         }
-        // for (int i = 0; i < numberOfAgents; i++)
-        // {
-        //     cout << agents[i]->score << endl;
-        // }
+        bool speciesReady = true; // check if all the species are past the timeSinceClimax threshold to see if they are ready to evolve
         for (int i = 0; i < numberOfSpecies; i++)
         {
-            species[i]->evaluate();
+            species[i]->evaluateAgents();
+            if (speciesReady && species[i]->timeSinceClimax < timeSinceClimaxThreshold) // first part is for efficiency cuz don't check if false
+            {
+                speciesReady = false;
+            }
+        }
+        if (speciesReady)
+        {
+            int topPercent = max(1, int(numberOfSpecies * speciesKeptPercent)); // get index from where to start replacing agents
+            for (int i = topPercent; i < numberOfSpecies; i++)
+            {
+                delete species[i];                                // delete specie from heap and existence
+                species[i] = new specie(species[i % topPercent]); // copy over one of the top species
+                species[i]->dataReset();                          // reset specie data for new round of evolution
+                species[i]->mutate();                             // mutate the copied specie
+            }
         }
     }
 };
@@ -543,14 +636,14 @@ int main()
     int i = 10;
     while (i--)
     {
-        worlds[0]->evaluate();
+        worlds[0]->evaluateAllAgents();
     }
     // agent one = new agent(worlds[0]->species[0]->agents[0]);
     // worlds[0]->species[0]->agents[0]->info();
     // one.info();
 
     // worlds[0]->species[0]->agents[0]->memoryReset();
-    // vector<double> output = worlds[0]->species[0]->agents[0]->evaluate({randDouble(), randDouble(), randDouble()});
+    // vector<double> output = worlds[0]->species[0]->agents[0]->evaluateData({randDouble(), randDouble(), randDouble()});
     // for (int i = 0; i < output.size(); i++)
     // {
     //     cout << output[i] << " ";
