@@ -1,13 +1,22 @@
 #include <iostream>
 #include <vector>
 #include <ctime>
+#include <algorithm>
 #define defaultNumberOfInputNodes 1
 #define defaultNumberOfOutputNodes 1
 #define defaultMutationRate 0.1
 #define defaultMutationAmplitude 0.1
 #define globalMutationFactor 0.01
+#define populationExposurePercent 0.2
+#define populationKeptPercent 0.2
+// #define startingNumberOfWorlds 1 // manually set to 1 for now
+#define startingNumberOfSpecies 3
+#define startingNumberOfAgents 10
 
 using namespace std;
+
+// REMINDERS:
+// - don't forget to reset/initialize the agent memory after mutation/ before starting a round
 
 double randDouble()
 {
@@ -130,13 +139,14 @@ class agent
 public:
     int numberOfNodes;                       // same number of nodes as blueprintNodes because number of weights correlate to number of connections
     int score;                               // the agent's score on an environment, initialized and used in world class during evaluation
-    vector<dataNode *> dataNodes;            // holds all weights and biases
     vector<blueprintNode *> *blueprintNodes; // holds reference to its specie's structure
+    vector<dataNode *> dataNodes;            // holds all weights and biases
 
     agent(vector<blueprintNode *> *givenBlueprintNodes) // default initializer
     {
         blueprintNodes = givenBlueprintNodes;
         numberOfNodes = blueprintNodes->size();
+        score = 0;
         for (int i = 0; i < numberOfNodes; i++)
         {
             dataNodes.push_back(new dataNode((*givenBlueprintNodes)[i]->numberOfConnections)); // add a dataNode pointer given number of connections to the dataNodes list
@@ -146,6 +156,8 @@ public:
     agent(agent *givenAgent) // copies an agent
     {
         numberOfNodes = givenAgent->numberOfNodes;
+        score = givenAgent->score;
+        blueprintNodes = givenAgent->blueprintNodes;
         for (int i = 0; i < numberOfNodes; i++)
         {
             dataNodes.push_back(new dataNode(givenAgent->dataNodes[i])); // copies each dataNode to dataNodes list
@@ -155,6 +167,8 @@ public:
     void info()
     {
         cout << "---|numberOfNodes: " << numberOfNodes << endl;
+        cout << "---|score: " << score << endl;
+        cout << "---|blueprintNodes: " << blueprintNodes << endl;
         cout << "---|dataNodes: " << endl;
         cout << "__________" << endl;
         for (int i = 0; i < numberOfNodes; i++)
@@ -176,8 +190,8 @@ public:
     {
         for (int i = 0; i < numberOfNodes; i++)
         {
-            dataNodes[i]->memory = dataNodes[i]->defaultMemory; // reset the memory
-            dataNodes[i]->currentlyActive = true;               // reset active state
+            dataNodes[i]->memory = dataNodes[i]->defaultMemory; // reset the memory to default value
+            dataNodes[i]->currentlyActive = true;               // reset active state to true
         }
     }
 
@@ -194,7 +208,7 @@ public:
         {
             futureMemory.push_back(0);                                 // placeholder
             perviouslyActive.push_back(dataNodes[i]->currentlyActive); // present becomes past
-            dataNodes[i]->currentlyActive = false;                     // placeholder
+            dataNodes[i]->currentlyActive = false;                     // placeholder/default value
         }
         for (int i = 0; i < numberOfNodes; i++)
         {
@@ -312,11 +326,126 @@ public:
         }
     }
 
+    void evaluate()
+    {
+        sort(agents.begin(), agents.end(), [](agent *agent1, agent *agent2) { return (agent1->score > agent2->score); });
+        for (int i = 0; i < numberOfAgents; i++)
+        {
+            cout << agents[i]->score << endl;
+        }
+        cout << endl;
+        int topPercent = max(1, int(numberOfAgents * populationKeptPercent));
+        for (int i = topPercent; i < numberOfAgents; i++)
+        {
+            delete agents[i];
+            agents[i] = new agent(agents[i % topPercent]);
+            agents[i]->mutate();
+        }
+    }
+
     void mutate()
     {
         for (int i = 0; i < numberOfAgents; i++)
         {
             blueprintNodes[i]->mutate();
+        }
+    }
+};
+
+class environment
+{
+public:
+    bool running;
+    bool hit;
+    int timeLeft;
+    int scoreAvailable;
+    int numberOfAgents;
+    vector<bool> isDead;
+    vector<agent *> agents;
+
+    environment()
+    {
+        running = true;
+        hit = false;
+        timeLeft = 100;
+        scoreAvailable = -1;
+        numberOfAgents = 0;
+    }
+
+    void info()
+    {
+        cout << "running: " << running << endl;
+        cout << "hit: " << hit << endl;
+        cout << "timeLeft: " << timeLeft << endl;
+        cout << "scoreAvailable: " << scoreAvailable << endl;
+        cout << "numberOfAgents: " << numberOfAgents << endl;
+        cout << "isDead: ";
+        for (int i = 0; i < numberOfAgents; i++)
+        {
+            cout << isDead[i] << " ";
+        }
+        cout << endl
+             << "agents: ";
+        for (int i = 0; i < numberOfAgents; i++)
+        {
+            cout << agents[i] << " ";
+        }
+        cout << endl;
+    }
+
+    void addAgent(agent *givenAgent)
+    {
+        givenAgent->memoryReset();
+        isDead.push_back(false);
+        agents.push_back(givenAgent);
+        numberOfAgents++;
+    }
+
+    void start()
+    {
+        while (running)
+        {
+            if (hit)
+                scoreAvailable /= 2;
+            if (!hit && (rand() % (timeLeft - 10)) == 0)
+            {
+                hit = true;
+                scoreAvailable = 10;
+            }
+            for (int i = 0; i < numberOfAgents; i++)
+            {
+                if (!isDead[i])
+                {
+                    if (hit)
+                    {
+                        if (agents[i]->evaluate({1.0})[0] > 0)
+                        {
+                            agents[i]->score += scoreAvailable;
+                            running = false;
+                        }
+                    }
+                    else
+                    {
+                        isDead[i] = agents[i]->evaluate({0.0})[0] > 0;
+                        if (isDead[i])
+                            agents[i]->score += scoreAvailable;
+                    }
+                }
+            }
+            bool allDead = true;
+            for (int i = 0; i < numberOfAgents; i++)
+            {
+                if (!isDead[i])
+                {
+                    allDead = false;
+                    break;
+                }
+            }
+            if (allDead || timeLeft == 0)
+            {
+                running = false;
+            }
+            timeLeft--;
         }
     }
 };
@@ -332,7 +461,7 @@ public:
         numberOfSpecies = givenNumberOfSpecies;
         for (int i = 0; i < numberOfSpecies; i++)
         {
-            species.push_back(new specie(numberOfSpecies)); // add a specie pointer with given number of agents to the species list
+            species.push_back(new specie(startingNumberOfAgents)); // add a specie pointer with given number of agents to the species list
         }
     }
 
@@ -359,77 +488,66 @@ public:
 
     void evaluate()
     {
+        int numberOfAgents = 0;
         vector<agent *> agents;
-        for (int i = 0; i < numberOfSpecies; i++)
+        for (int i = 0; i < numberOfSpecies; i++) // collect all agents in this world
         {
             for (int j = 0; j < species[i]->numberOfAgents; j++)
             {
                 species[i]->agents[j]->score = 0;
                 agents.push_back(species[i]->agents[j]);
+                numberOfAgents++;
             }
         }
-    }
-};
-
-class environment
-{
-public:
-    bool running;
-    bool hit;
-    int numberOfAgents;
-    vector<bool> isDead;
-    vector<agent *> agents;
-
-    environment()
-    {
-        running = true;
-        hit = false;
-        numberOfAgents = 0;
-    }
-
-    void addAgent(agent *givenAgent)
-    {
-        isDead.push_back(false);
-        agents.push_back(givenAgent);
-        numberOfAgents++;
-    }
-
-    void start()
-    {
-        while (running)
+        for (int i = 0; i < numberOfAgents; i++) // shuffle list
         {
-            for (int i = 0; i < numberOfAgents; i++)
+            int tempAgentIndex = rand() % numberOfAgents;
+            agent *tempAgent = agents[tempAgentIndex];
+            agents[tempAgentIndex] = agents[i];
+            agents[i] = tempAgent;
+        }
+        for (int i = 0; i < numberOfAgents; i++) // put agents through the environment
+        {
+            environment newEnvironment;
+            int k = i;
+            for (int j = 0; j < max(2, int(numberOfAgents * populationExposurePercent)); j++) // decide number of agents in a game
             {
-                if (!isDead[i])
-                {
-                    if (hit)
-                    {
-                        if (agents[i]->evaluate({1.0})[0] > 0)
-                            agents[i]->score++;
-                        running = false;
-                    }
-                    else
-                    {
-                        isDead[i] = agents[i]->evaluate({1.0})[0] > 0;
-                        if (isDead[i])
-                            agents[i]->score--;
-                    }
-                }
+                newEnvironment.addAgent(agents[k]);
+                k++;
+                if (k == numberOfAgents)
+                    k = 0;
             }
+            newEnvironment.start();
+            // newEnvironment.info();
+            // cout << endl;
+        }
+        // for (int i = 0; i < numberOfAgents; i++)
+        // {
+        //     cout << agents[i]->score << endl;
+        // }
+        for (int i = 0; i < numberOfSpecies; i++)
+        {
+            species[i]->evaluate();
         }
     }
 };
 
 vector<world *> worlds;
-// don't forget to reset/initialize the agent memory after mutation
 
 int main()
 {
-    srand(time(NULL));
+    srand(unsigned(time(NULL)));
     randDouble();
 
-    worlds.push_back(new world(defaultNumberOfInputNodes + defaultNumberOfOutputNodes)); // add a world pointer given number of species to the world list
-    worlds[0]->evaluate();
+    worlds.push_back(new world(startingNumberOfSpecies)); // add a world pointer given number of species to the world list
+    int i = 10;
+    while (i--)
+    {
+        worlds[0]->evaluate();
+    }
+    // agent one = new agent(worlds[0]->species[0]->agents[0]);
+    // worlds[0]->species[0]->agents[0]->info();
+    // one.info();
 
     // worlds[0]->species[0]->agents[0]->memoryReset();
     // vector<double> output = worlds[0]->species[0]->agents[0]->evaluate({randDouble(), randDouble(), randDouble()});
