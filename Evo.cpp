@@ -14,7 +14,7 @@
 #define startingNumberOfSpecies 3
 #define startingNumberOfAgents 10
 #define logLength 10
-#define timeSinceClimaxThreshold 100
+#define timeSinceClimaxThreshold 10
 
 using namespace std;
 
@@ -62,9 +62,16 @@ public:
         cout << endl;
     }
 
-    void mutate() // changes the mutationRate by the global mutationfactor
+    void mutate(vector<vector<int>> *givenReverseBlueprint, vector<bool> *isDeleted, bool isEssentialNode) // changes the mutationRate by the global mutationfactor
     {
+        givenReverseBlueprint[0][0];
+        isDeleted[0];
         mutationRate += (randDouble() * 2 - 1) * mutationFactor;
+    }
+
+    void addNode()
+    {
+        //
     }
 };
 
@@ -394,9 +401,26 @@ public:
 
     void mutate()
     {
+        vector<vector<int>> reverseBlueprint;
+        vector<bool> isDeleted;
         for (int i = 0; i < numberOfBlueprintNodes; i++)
         {
-            blueprintNodes[i]->mutate(); // mutate each blueprintNode, add/delete nodes/connections
+            isDeleted.push_back(false);
+        }
+        for (int i = 0; i < numberOfBlueprintNodes; i++)
+        {
+            reverseBlueprint.push_back({});
+        }
+        for (int i = 0; i < numberOfBlueprintNodes; i++)
+        {
+            for (int j = 0; j < blueprintNodes[i]->numberOfConnections; j++)
+            {
+                reverseBlueprint[blueprintNodes[i]->connections[j]].push_back(i);
+            }
+        }
+        for (int i = 0; i < numberOfBlueprintNodes; i++)
+        {
+            blueprintNodes[i]->mutate(&reverseBlueprint, &isDeleted, i < defaultNumberOfInputNodes + defaultNumberOfOutputNodes); // mutate each blueprintNode, add/delete nodes/connections
         }
     }
 };
@@ -582,13 +606,15 @@ public:
         for (int i = 0; i < numberOfAgents; i++) // put agents through the environment
         {
             environment newEnvironment;
-            int k = i;
+            int k = i;                                                                        // modulating index
             for (int j = 0; j < max(2, int(numberOfAgents * populationExposurePercent)); j++) // decide number of agents in a game
             {
                 newEnvironment.addAgent(agents[k]); // add agent to the environment
                 k++;
                 if (k == numberOfAgents)
+                {
                     k = 0;
+                }
             }
             newEnvironment.start(); // run the environment until it finishes and update agent scores
             // newEnvironment.info();
