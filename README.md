@@ -16,9 +16,3 @@ Evolve artificial general intelligence through a unique agent model and training
 
 - Species mutation
 - Environment remove agent
-
-
-
-### REMINDERS
-
-- Don't forget to reset/initialize the agent memory after mutation/ before starting a round
