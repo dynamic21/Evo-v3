@@ -27,13 +27,19 @@ class blueprintNode
 {
 public:
     int numberOfConnections;
-    double mutationRate;     // the chance that this blueprintNode will mutate
-    vector<int> connections; // list of connections to other blueprintNodes' indexes
+    double addNodeMutationRate;          // the chance that this blueprintNode will have a connection split in two with a node seperating them
+    double deleteNodemutationRate;       // the chance that this blueprintNode will be deleted
+    double addConnectionmutationRate;    // the chance that this blueprintNode will add a connection to a random node
+    double deleteConnectionmutationRate; // the chance that this blueprintNode will delete a connection
+    vector<int> connections;             // list of connections to other blueprintNodes' indexes
 
     blueprintNode(vector<int> givenConnections) // default initializer
     {
         numberOfConnections = givenConnections.size();
-        mutationRate = defaultMutationRate;
+        addNodeMutationRate = defaultMutationRate;
+        deleteNodemutationRate = defaultMutationRate;
+        addConnectionmutationRate = defaultMutationRate;
+        deleteConnectionmutationRate = defaultMutationRate;
         for (int i = 0; i < numberOfConnections; i++)
         {
             connections.push_back(givenConnections[i]); // copies the given connections
@@ -43,7 +49,10 @@ public:
     blueprintNode(blueprintNode *givenBlueprintNode) // copies a blueprintNode
     {
         numberOfConnections = givenBlueprintNode->numberOfConnections;
-        mutationRate = givenBlueprintNode->mutationRate;
+        addNodeMutationRate = givenBlueprintNode->addNodeMutationRate;
+        deleteNodemutationRate = givenBlueprintNode->deleteNodemutationRate;
+        addConnectionmutationRate = givenBlueprintNode->addConnectionmutationRate;
+        deleteConnectionmutationRate = givenBlueprintNode->deleteConnectionmutationRate;
         for (int i = 0; i < numberOfConnections; i++)
         {
             connections.push_back(givenBlueprintNode->connections[i]);
@@ -53,7 +62,10 @@ public:
     void info()
     {
         cout << "---|numberOfConnections: " << numberOfConnections << endl;
-        cout << "---|mutationRate: " << mutationRate << endl;
+        cout << "---|addNodeMutationRate: " << addNodeMutationRate << endl;
+        cout << "---|deleteNodemutationRate: " << deleteNodemutationRate << endl;
+        cout << "---|addConnectionmutationRate: " << addConnectionmutationRate << endl;
+        cout << "---|deleteConnectionmutationRate: " << deleteConnectionmutationRate << endl;
         cout << "---|connections: ";
         for (int i = 0; i < numberOfConnections; i++)
         {
@@ -62,16 +74,45 @@ public:
         cout << endl;
     }
 
-    void mutate(vector<vector<int>> *givenReverseBlueprint, vector<bool> *isDeleted, bool isEssentialNode) // changes the mutationRate by the global mutationfactor
+    void mutate()
     {
-        givenReverseBlueprint[0][0];
-        isDeleted[0];
-        mutationRate += (randDouble() * 2 - 1) * mutationFactor;
+        addNodeMutationRate += (randDouble() * 2 - 1) * mutationFactor;
+        deleteNodemutationRate += (randDouble() * 2 - 1) * mutationFactor;
+        addConnectionmutationRate += (randDouble() * 2 - 1) * mutationFactor;
+        deleteConnectionmutationRate += (randDouble() * 2 - 1) * mutationFactor;
     }
 
-    void addNode()
+    int addNode(int givenNumberOfBlueprintNodes)
     {
-        //
+        if (randDouble() > addNodeMutationRate)
+        {
+            return -1;
+        }
+        int connectionIndex = rand() % numberOfConnections;
+        int previousConnectionIndex = connections[connectionIndex];
+        connections[connectionIndex] = givenNumberOfBlueprintNodes;
+        return previousConnectionIndex;
+    }
+
+    void addConnection(int givenNodeIndex)
+    {
+        if (randDouble() > addConnectionmutationRate)
+        {
+            return;
+        }
+        bool notConnected = true;
+        for (int i = 0; i < numberOfConnections; i++)
+        {
+            if (connections[i] == givenNodeIndex)
+            {
+                notConnected = false;
+                break;
+            }
+        }
+        if (notConnected)
+        {
+            connections.push_back(givenNodeIndex);
+        }
     }
 };
 
@@ -366,11 +407,15 @@ public:
         }
     }
 
-    void evaluateAgents() // this is the agent selection
+    void sortAgents()
     {
         sort(agents.begin(), agents.end(), [](agent *agent1, agent *agent2) { // sort from greatest to least
             return (agent1->score > agent2->score);
         });
+    }
+
+    void evaluateAndRepopulateAgents() // this is the agent selection
+    {
         int topPercent = max(1, int(numberOfAgents * agentsKeptPercent)); // get index from where to start replacing agents, keep the top percent
         for (int i = topPercent; i < numberOfAgents; i++)                 // for every agent after the top percent
         {
@@ -399,14 +444,40 @@ public:
         timeSinceClimax++; // increase the timeSinceClimax
     }
 
+    void agentSelection() // deletes bottom percent
+    {
+        int topPercent = max(1, int(numberOfAgents * agentsKeptPercent)); // get index from where to start deleting agents, keep the top percent
+        while (numberOfAgents > topPercent)                               // for every agent after the top percent
+        {
+            delete agents[numberOfAgents - 1]; // delete last agent from heap and existence
+            agents.pop_back();                 // remove last item
+            numberOfAgents--;
+        }
+    }
+
+    void extremeAgentSelection() // only best agent lives
+    {
+        while (numberOfAgents > 1) // for every agent after the top percent
+        {
+            delete agents[numberOfAgents - 1]; // delete last agent from heap and existence
+            agents.pop_back();                 // remove last item
+            numberOfAgents--;
+        }
+    }
+
+    void populate() // fills agents list
+    {
+        for (int i = 0; i < numberOfBlueprintNodes; i++) // for every blueprintNode, add an agent
+        {
+            agents.push_back(new agent(agents[0]));
+            agents[numberOfAgents]->mutate();
+            numberOfAgents++;
+        }
+    }
+
     void mutate()
     {
         vector<vector<int>> reverseBlueprint;
-        vector<bool> isDeleted;
-        for (int i = 0; i < numberOfBlueprintNodes; i++)
-        {
-            isDeleted.push_back(false);
-        }
         for (int i = 0; i < numberOfBlueprintNodes; i++)
         {
             reverseBlueprint.push_back({});
@@ -420,8 +491,32 @@ public:
         }
         for (int i = 0; i < numberOfBlueprintNodes; i++)
         {
-            blueprintNodes[i]->mutate(&reverseBlueprint, &isDeleted, i < defaultNumberOfInputNodes + defaultNumberOfOutputNodes); // mutate each blueprintNode, add/delete nodes/connections
+            addNode(i);
+            addConnection(i);
+            blueprintNodes[i]->mutate();
         }
+    }
+
+    void addNode(int givenNodeIndex)
+    {
+        int connectionIndex = blueprintNodes[givenNodeIndex]->addNode(numberOfBlueprintNodes);
+        if (connectionIndex == -1) // if mutation failed
+        {
+            return;
+        }
+        blueprintNodes.push_back(new blueprintNode({connectionIndex}));
+        numberOfBlueprintNodes++;
+        agents[0]->dataNodes.push_back(new dataNode(1));
+        agents[0]->numberOfNodes++;
+        agents[0]->blueprintNodes = (&blueprintNodes);
+    }
+
+    void addConnection(int givenNodeIndex)
+    {
+        blueprintNodes[givenNodeIndex]->addConnection(rand() % numberOfBlueprintNodes);
+        agents[0]->dataNodes[givenNodeIndex]->weights.push_back(1);
+        agents[0]->dataNodes[givenNodeIndex]->numberOfWeights++;
+        // agents[0]->blueprintNodes = (&blueprintNodes);
     }
 };
 
@@ -488,9 +583,11 @@ public:
         numberOfAgents++;
     }
 
-    void removeAgent(int givenIndex) // removes an agent pointer from the environment
+    void removeAgent(int givenIndex) // removes an agent pointer and other data about it from the environment
     {
-        //
+        agents.erase(agents.begin() + givenIndex);
+        isDead.erase(isDead.begin() + givenIndex);
+        numberOfAgents--;
     }
 
     void start()
@@ -586,7 +683,7 @@ public:
     void evaluateAllAgents() // evaluates all agents in the environment and check is species is ready for selection
     {
         int numberOfAgents = 0;
-        vector<agent *> agents;
+        vector<agent *> agents;                   // stores all the agents in world
         for (int i = 0; i < numberOfSpecies; i++) // collect all agents in this world
         {
             for (int j = 0; j < species[i]->numberOfAgents; j++)
@@ -623,14 +720,35 @@ public:
         bool speciesReady = true; // check if all the species are past the timeSinceClimax threshold to see if they are ready for selection
         for (int i = 0; i < numberOfSpecies; i++)
         {
-            species[i]->evaluateAgents();
-            if (speciesReady && species[i]->timeSinceClimax < timeSinceClimaxThreshold) // first part is for efficiency cuz don't check if false
+            if (species[i]->timeSinceClimax < timeSinceClimaxThreshold)
             {
                 speciesReady = false;
+                break;
             }
         }
         if (speciesReady) // species selection
         {
+            for (int i = 0; i < numberOfSpecies; i++) // get the best of each specie after reevaluation
+            {
+                cout << "species " << i << " got score of " << species[i]->currentScore / logLength / max(2, int(numberOfAgents * populationExposurePercent)) << " and a size of " << species[i]->numberOfBlueprintNodes << endl;
+                species[i]->sortAgents();     // sort from greatest to least
+                species[i]->agentSelection(); // deletes bottom percent
+                for (int j = 0; j < species[i]->numberOfAgents; j++)
+                {
+                    species[i]->agents[j]->score = 0;
+                }
+                for (int j = 0; j < 3; j++)
+                {
+                    environment newEnvironment;
+                    for (int k = 0; k < species[i]->numberOfAgents; k++)
+                    {
+                        newEnvironment.addAgent(species[i]->agents[k]); // add every agent remaining in the species
+                    }
+                    newEnvironment.start(); // run the environment until it finishes and update agent scores
+                }
+                species[i]->sortAgents();            // get new evaluation for the top agent
+                species[i]->extremeAgentSelection(); // get one agent remaining
+            }
             int topPercent = max(1, int(numberOfSpecies * speciesKeptPercent)); // get index from where to start replacing species
             for (int i = topPercent; i < numberOfSpecies; i++)
             {
@@ -639,7 +757,19 @@ public:
                 species[i]->dataReset();                          // reset specie data for new round of evolution
                 species[i]->mutate();                             // mutate the copied specie
             }
+            for (int i = 0; i < numberOfSpecies; i++)
+            {
+                species[i]->populate();
+            }
             cout << "species evolved" << endl;
+        }
+        else // species evaluate And RepopulateAgents
+        {
+            for (int i = 0; i < numberOfSpecies; i++)
+            {
+                species[i]->sortAgents();                  // sort from greatest to least
+                species[i]->evaluateAndRepopulateAgents(); // replace bottom percent with mutated top percent
+            }
         }
     }
 };
